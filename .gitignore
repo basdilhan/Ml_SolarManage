@@ -1,1 +1,13 @@
 data/
+
+# Documentation files
+PROJECT_GUIDE.md
+TECHNICAL_DETAILS.md
+START_HERE.md
+TEAM_PROJECT_PLAN.md
+QUICK_TEAM_SUMMARY.md
+COLLABORATION_GUIDE.md
+MEMBER_COMMANDS.md
+documents/
+*.zip
+
