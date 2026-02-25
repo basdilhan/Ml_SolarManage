@@ -1,0 +1,37 @@
+{
+  "Decision Tree": {
+    "R2": 0.9979,
+    "MAE": 0.5708,
+    "RMSE": 5.7478
+  },
+  "Gradient Boosting": {
+    "R2": 0.9987,
+    "MAE": 0.8504,
+    "RMSE": 4.5064
+  },
+  "Knn Regressor": {
+    "R2": 0.9945,
+    "MAE": 2.5968,
+    "RMSE": 9.3892
+  },
+  "Linear Regression": {
+    "R2": 1.0,
+    "MAE": 0.0602,
+    "RMSE": 0.5318
+  },
+  "Random Forest": {
+    "R2": 0.9982,
+    "MAE": 0.4784,
+    "RMSE": 5.3419
+  },
+  "Svr": {
+    "R2": 0.9139,
+    "MAE": 14.1346,
+    "RMSE": 37.2173
+  },
+  "Xgboost": {
+    "R2": 0.9986,
+    "MAE": 0.5069,
+    "RMSE": 4.8241
+  }
+}
