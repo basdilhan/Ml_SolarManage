@@ -419,17 +419,12 @@ def main() -> None:
         [
             "🏠 Predict",
             "🏁 Model Comparison",
-            "🎛️ What-if Simulator",
             "🧪 Error Analysis",
-            "⬇️ Reports",
         ],
     )
 
     st.sidebar.markdown("---")
     st.sidebar.caption("Solar Wastage Forecast • Professional Mode")
-
-    # Keep latest prediction for simulator + reports pages
-    last_prediction = st.session_state.get("last_prediction")
 
     if section == "🏁 Model Comparison":
         st.title("🏁 Model Comparison")
@@ -507,115 +502,6 @@ def main() -> None:
             ax_res.set_ylabel("Count")
             fig_res.tight_layout()
             st.pyplot(fig_res)
-        return
-
-    if section == "🎛️ What-if Simulator":
-        st.title("🎛️ What-if Simulator")
-        st.markdown(
-            "<div class='custom-card'><div class='section-sub'>Adjust PV, load, temperature, and irradiance to instantly test tomorrow wastage impact.</div></div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown("---")
-
-        base_pv = [55.0, 57.0, 59.0]
-        base_load = [18.0, 19.0, 20.0]
-        base_temp = 27.0
-        base_irr = 500.0
-        base_district = "Colombo"
-        base_season = "Southwest_Monsoon"
-        base_prediction_date = datetime.date.today() + datetime.timedelta(days=1)
-
-        if last_prediction is not None:
-            base_pv = last_prediction.get("pv_3days", base_pv)
-            base_load = last_prediction.get("load_3days", base_load)
-            base_temp = last_prediction.get("temp", base_temp)
-            base_irr = last_prediction.get("irradiance", base_irr)
-            base_district = last_prediction.get("district", base_district)
-            base_season = last_prediction.get("season", base_season)
-            lp_date = last_prediction.get("prediction_date")
-            if isinstance(lp_date, datetime.date):
-                base_prediction_date = lp_date
-            elif isinstance(lp_date, str):
-                try:
-                    base_prediction_date = datetime.date.fromisoformat(lp_date)
-                except ValueError:
-                    pass
-
-        wf_c1, wf_c2, wf_c3, wf_c4 = st.columns(4)
-        with wf_c1:
-            pv_delta = st.slider("PV Δ (kWh)", -20.0, 20.0, 0.0, 0.5)
-        with wf_c2:
-            load_delta = st.slider("Load Δ (kWh)", -20.0, 20.0, 0.0, 0.5)
-        with wf_c3:
-            temp_delta = st.slider("Temp Δ (°C)", -10.0, 10.0, 0.0, 0.5)
-        with wf_c4:
-            irr_delta = st.slider("Irradiance Δ (W/m²)", -300.0, 300.0, 0.0, 10.0)
-
-        wf_prediction_date = st.date_input(
-            "Simulation Prediction Date",
-            value=base_prediction_date,
-            min_value=datetime.date.today(),
-            max_value=datetime.date.today() + datetime.timedelta(days=15),
-            key="whatif_prediction_date",
-        )
-
-        pv_sim = base_pv.copy()
-        load_sim = base_load.copy()
-        pv_sim[2] = max(0.0, pv_sim[2] + pv_delta)
-        load_sim[2] = max(0.0, load_sim[2] + load_delta)
-
-        wf_features = compute_features_from_3days(pv_sim, load_sim)
-        wf_features.update(get_calendar_features(wf_prediction_date))
-        wf_features["temp"] = base_temp + temp_delta
-        wf_features["irradiance"] = max(0.0, base_irr + irr_delta)
-        wf_features["district"] = base_district
-        wf_features["season"] = base_season
-        wf_features["household"] = "residential1"
-
-        wf_input_df = build_feature_row(feature_names, wf_features)
-        wf_pred = max(0.0, float(pipeline.predict(wf_input_df)[0]))
-        st.metric("What-if Predicted Wastage (kWh)", f"{wf_pred:.2f}")
-        return
-
-    if section == "⬇️ Reports":
-        st.title("⬇️ Prediction Reports")
-        st.markdown(
-            "<div class='custom-card'><div class='section-sub'>Download the latest prediction as CSV and PDF snapshot.</div></div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown("---")
-
-        if last_prediction is None:
-            st.info("No prediction available yet. Go to 'Predict' section and run a prediction first.")
-            return
-
-        report_payload = last_prediction.get("report_payload", {})
-        if not report_payload:
-            st.info("No report payload found. Run a fresh prediction in 'Predict'.")
-            return
-
-        st.dataframe(pd.DataFrame([report_payload]), width="stretch", hide_index=True)
-
-        csv_bytes = build_prediction_report_csv(report_payload)
-        pdf_bytes = build_prediction_report_pdf(report_payload)
-
-        d1, d2 = st.columns(2)
-        with d1:
-            st.download_button(
-                "Download CSV Report",
-                data=csv_bytes,
-                file_name="prediction_report.csv",
-                mime="text/csv",
-                width="stretch",
-            )
-        with d2:
-            st.download_button(
-                "Download PDF Snapshot",
-                data=pdf_bytes,
-                file_name="prediction_report.pdf",
-                mime="application/pdf",
-                width="stretch",
-            )
         return
 
     # Default section: Predict
@@ -836,20 +722,6 @@ def main() -> None:
 
     st.markdown("---")
 
-    if data_ready and pv_3days is not None and load_3days is not None and day_dates is not None:
-        if st.button("💾 Save Latest Input Day (D-1) to sample CSV", width="stretch"):
-            try:
-                saved_path = save_manual_history_latest_day(
-                    pv_latest=float(pv_3days[2]),
-                    load_latest=float(load_3days[2]),
-                    entry_date=day_dates[2],
-                )
-                st.success(f"Saved latest input day to {saved_path}")
-            except Exception as ex:
-                st.error(f"Failed to save inputs: {ex}")
-
-    st.markdown("---")
-
     # =================================================================
     # 5. PREDICT BUTTON
     # =================================================================
@@ -858,6 +730,17 @@ def main() -> None:
             st.error("❌ Please provide energy data (manual or CSV) before predicting.")
         else:
             try:
+                saved_path = None
+                if day_dates is not None:
+                    try:
+                        saved_path = save_manual_history_latest_day(
+                            pv_latest=float(pv_3days[2]),
+                            load_latest=float(load_3days[2]),
+                            entry_date=day_dates[2],
+                        )
+                    except Exception as save_error:
+                        st.warning(f"⚠️ Auto-save failed: {save_error}")
+
                 # --- Compute all features from 3-day data ---
                 features = compute_features_from_3days(pv_3days, load_3days)
 
@@ -883,15 +766,9 @@ def main() -> None:
                 todays_wastage = round(max(0.0, pv_3days[2] - load_3days[2]), 2)
 
                 # ============================================
-                # INPUT SUMMARY + CONFIDENCE
+                # CONFIDENCE
                 # ============================================
                 st.markdown("---")
-                st.subheader("🧾 Input Summary")
-
-                summary_view = input_df.T.reset_index()
-                summary_view.columns = ["Feature", "Value"]
-                st.dataframe(summary_view, width='stretch', hide_index=True)
-
                 st.subheader("🛡️ Prediction Confidence")
                 if confidence_level == "high":
                     st.success("High confidence: all numeric inputs are within training ranges.")
@@ -962,35 +839,9 @@ def main() -> None:
                     })
                     st.line_chart(hist_chart_df.set_index("Date")["Wastage_kWh"], width='stretch')
 
-                report_payload = {
-                    "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
-                    "input_mode": input_mode,
-                    "district": district,
-                    "season": season,
-                    "predicted_tomorrow_wastage_kwh": predicted_wastage,
-                    "todays_actual_wastage_kwh": todays_wastage,
-                    "temp_c": temp,
-                    "irradiance_wm2": irradiance,
-                    "rainfall_mm": rainfall,
-                    "cloud_cover_pct": cloud_cover,
-                    "confidence_level": confidence_level,
-                    "model_file": str(MODEL_PATH),
-                }
-
-                st.session_state["last_prediction"] = {
-                    "pv_3days": pv_3days,
-                    "load_3days": load_3days,
-                    "prediction_date": prediction_date.isoformat(),
-                    "temp": temp,
-                    "irradiance": irradiance,
-                    "district": district,
-                    "season": season,
-                    "predicted_wastage": predicted_wastage,
-                    "confidence": confidence_level,
-                    "report_payload": report_payload,
-                }
-
-                st.success("Saved this prediction to session. Use sidebar sections for What-if and Report downloads.")
+                if saved_path is not None:
+                    st.caption(f"Auto-saved latest input day to {saved_path}")
+                st.success("Prediction completed successfully.")
 
             except Exception as e:
                 st.error(f"❌ Prediction failed: {e}")
