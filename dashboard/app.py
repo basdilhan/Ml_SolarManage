@@ -34,6 +34,7 @@ DATA_PATH = Path("data/processed/features_regression_ready.csv")
 MODEL_PATH = Path("best_model_pipeline.pkl")
 HISTORY_CSV = Path("data/sample_csv/manual_entry_history.csv")
 METRICS_PATH = Path("model_metrics.json")
+EXPORT_LIMIT_KWH = 20.0
 
 # ---------------------------------------------------------------------------
 # District coordinates (for weather API)
@@ -76,7 +77,7 @@ def fetch_weather_forecast(district: str, target_date: datetime.date) -> Dict[st
 
         temp = daily.get("temperature_2m_mean", [27.0])[idx]
         rad  = daily.get("shortwave_radiation_sum", [0.0])[idx]
-        irr  = (rad * 1_000_000) / 86400 if rad else 0.0
+        irr  = (float(rad) / 3.6) if rad else 0.0
 
         return {
             "temp":        round(float(temp or 27.0), 2),
@@ -158,6 +159,11 @@ def apply_professional_theme() -> None:
     )
 
 
+def compute_wastage_from_pv_load(pv_kwh: float, load_kwh: float, export_limit_kwh: float = EXPORT_LIMIT_KWH) -> float:
+    export_kwh = max(0.0, float(pv_kwh) - float(load_kwh))
+    return max(0.0, export_kwh - float(export_limit_kwh))
+
+
 def load_manual_history_for_prediction_date(prediction_date: datetime.date) -> pd.DataFrame | None:
     """Load saved entries that exactly match D-3, D-2, D-1 for selected prediction date."""
     if not HISTORY_CSV.exists():
@@ -167,6 +173,12 @@ def load_manual_history_for_prediction_date(prediction_date: datetime.date) -> p
         hist = pd.read_csv(HISTORY_CSV, parse_dates=["Date"])
         if hist.empty or "Date" not in hist.columns:
             return None
+
+        expected_cols = ["Date", "Solar_Generation", "Load"]
+        for col in expected_cols:
+            if col not in hist.columns:
+                hist[col] = np.nan
+        hist = hist[expected_cols]
 
         hist["Date"] = pd.to_datetime(hist["Date"]).dt.date
         required_dates = [
@@ -185,7 +197,12 @@ def load_manual_history_for_prediction_date(prediction_date: datetime.date) -> p
                     "Load": np.nan,
                 })
             else:
-                rows.append(matches.iloc[-1].to_dict())
+                latest = matches.iloc[-1]
+                rows.append({
+                    "Date": req_date,
+                    "Solar_Generation": latest.get("Solar_Generation", np.nan),
+                    "Load": latest.get("Load", np.nan),
+                })
 
         return pd.DataFrame(rows)
     except Exception:
@@ -255,7 +272,7 @@ def build_prediction_report_pdf(report: Dict[str, Any]) -> bytes:
             f"Predicted Tomorrow Wastage (kWh): {report.get('predicted_tomorrow_wastage_kwh', '')}",
             f"Today's Actual Wastage (kWh): {report.get('todays_actual_wastage_kwh', '')}",
             f"Temperature (°C): {report.get('temp_c', '')}",
-            f"Irradiance (W/m²): {report.get('irradiance_wm2', '')}",
+            f"Irradiance (kWh/m²/day): {report.get('irradiance_kwh_m2_day', '')}",
             f"Rainfall (mm): {report.get('rainfall_mm', '')}",
             f"Cloud Cover (%): {report.get('cloud_cover_pct', '')}",
             f"Confidence: {report.get('confidence_level', '')}",
@@ -280,12 +297,16 @@ def save_manual_history_latest_day(pv_latest: float, load_latest: float, entry_d
         }
     ])
 
+    expected_cols = ["Date", "Solar_Generation", "Load"]
+
     if HISTORY_CSV.exists():
         existing = pd.read_csv(HISTORY_CSV)
-        if "Date" not in existing.columns:
-            existing = pd.DataFrame(columns=["Date", "Solar_Generation", "Load"])
+        for col in expected_cols:
+            if col not in existing.columns:
+                existing[col] = np.nan
+        existing = existing[expected_cols]
     else:
-        existing = pd.DataFrame(columns=["Date", "Solar_Generation", "Load"])
+        existing = pd.DataFrame(columns=expected_cols)
 
     merged = pd.concat([existing, new_row], ignore_index=True)
     merged = merged.drop_duplicates(subset=["Date"], keep="last")
@@ -315,8 +336,8 @@ def compute_features_from_3days(
     Given 3 days of PV and Load (index 0 = oldest, 2 = most recent),
     compute all lag, rolling, and derived features the model needs.
     """
-    # Wastage for each day: max(0, PV - Load)
-    wastage = [max(0.0, p - l) for p, l in zip(pv, load)]
+    # Wastage for each day with export threshold
+    wastage = [compute_wastage_from_pv_load(p, l) for p, l in zip(pv, load)]
 
     # Net export for each day
     net_export = [p - l for p, l in zip(pv, load)]
@@ -700,7 +721,7 @@ def main() -> None:
         st.info(
             f"📅 Forecast date: **{weather['date']}** | "
             f"📍 District: **{district}** — "
-            "Auto-filled from Open-Meteo. Adjust if needed."
+            "Auto-filled from Open-Meteo (irradiance in kWh/m²/day). Adjust if needed."
         )
         default_temp = weather["temp"]
         default_irr  = weather["irradiance"]
@@ -708,13 +729,13 @@ def main() -> None:
         default_cc   = weather["cloud_cover"]
     else:
         st.warning("⚠️ Could not fetch weather. Please enter values manually.")
-        default_temp, default_irr, default_rain, default_cc = 27.0, 0.0, 0.0, 50.0
+        default_temp, default_irr, default_rain, default_cc = 27.0, 5.0, 0.0, 50.0
 
     w_c1, w_c2, w_c3, w_c4 = st.columns(4)
     with w_c1:
         temp = st.number_input("Temperature (°C)", min_value=-5.0, max_value=50.0, value=default_temp)
     with w_c2:
-        irradiance = st.number_input("Irradiance (W/m²)", min_value=0.0, max_value=1500.0, value=default_irr)
+        irradiance = st.number_input("Irradiance (kWh/m²/day)", min_value=0.0, max_value=15.0, value=float(default_irr), step=0.1)
     with w_c3:
         rainfall = st.number_input("Rainfall (mm)", min_value=0.0, max_value=500.0, value=default_rain)
     with w_c4:
@@ -762,8 +783,8 @@ def main() -> None:
                 prediction = pipeline.predict(input_df)[0]
                 predicted_wastage = round(max(float(prediction), 0.0), 2)
 
-                # --- Today's actual wastage (computed from today's inputs) ---
-                todays_wastage = round(max(0.0, pv_3days[2] - load_3days[2]), 2)
+                # --- Today's actual wastage (computed from today's inputs with export threshold) ---
+                todays_wastage = round(compute_wastage_from_pv_load(pv_3days[2], load_3days[2]), 2)
 
                 # ============================================
                 # CONFIDENCE
@@ -834,7 +855,7 @@ def main() -> None:
                 if day_dates is not None:
                     hist_chart_df = pd.DataFrame({
                         "Date": [d.isoformat() for d in day_dates] + [(datetime.date.today() + datetime.timedelta(days=1)).isoformat()],
-                        "Wastage_kWh": [max(0.0, pv_3days[i] - load_3days[i]) for i in range(3)] + [predicted_wastage],
+                        "Wastage_kWh": [compute_wastage_from_pv_load(pv_3days[i], load_3days[i]) for i in range(3)] + [predicted_wastage],
                         "Type": ["Actual", "Actual", "Actual", "Predicted"],
                     })
                     st.line_chart(hist_chart_df.set_index("Date")["Wastage_kWh"], width='stretch')
