@@ -1,0 +1,45 @@
+{
+  "data_path": "data\\processed\\features_regression_ready.csv",
+  "model_path": "models\\production_leakage_safe_pipeline.pkl",
+  "feature_list_path": "models\\safe_feature_list.json",
+  "split": {
+    "strategy": "temporal",
+    "train_rows": 3941,
+    "val_rows": 845,
+    "test_rows": 845,
+    "total_rows": 5631,
+    "ratios": {
+      "train": 0.7,
+      "val": 0.15,
+      "test": 0.15
+    }
+  },
+  "validation_metrics": {
+    "LinearRegression": {
+      "R2": 0.9878828496815713,
+      "MAE": 11.363886511350222,
+      "RMSE": 12.704033197314017
+    },
+    "Ridge": {
+      "R2": 0.9884732310656551,
+      "MAE": 11.046258339905902,
+      "RMSE": 12.39068070708606
+    },
+    "RandomForest": {
+      "R2": 0.9805694532067365,
+      "MAE": 7.656423958871794,
+      "RMSE": 16.08732676572099
+    },
+    "GradientBoosting": {
+      "R2": 0.9909053115385635,
+      "MAE": 5.7511898359589,
+      "RMSE": 11.00614640722611
+    }
+  },
+  "selected_model": "GradientBoosting",
+  "test_metrics": {
+    "R2": 0.0,
+    "MAE": 1.02667279780331,
+    "RMSE": 1.5583542756862792
+  }
+}

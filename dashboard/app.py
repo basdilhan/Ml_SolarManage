@@ -573,8 +573,8 @@ def main() -> None:
         )
 
         # Auto-load previous entries for exact D-3, D-2, D-1 dates if available
-        default_pv = [55.0, 57.0, 59.0]
-        default_load = [18.0, 19.0, 20.0]
+        default_pv = [0.0, 0.0, 0.0]  # Default PV generation set to zero
+        default_load = [0.0, 0.0, 0.0]  # Default today load set to zero
         prev = load_manual_history_for_prediction_date(prediction_date)
         if prev is not None and len(prev) == 3:
             matched_days = 0

@@ -1,0 +1,48 @@
+{
+  "target": "wasted_energy_kwh",
+  "feature_columns": [
+    "daily_pv_kwh",
+    "daily_load_kwh",
+    "household",
+    "year",
+    "month",
+    "day",
+    "day_of_week",
+    "day_of_year",
+    "is_weekend",
+    "season",
+    "pv_lag_1d",
+    "load_lag_1d",
+    "pv_lag_3d",
+    "load_lag_3d",
+    "pv_lag_7d",
+    "load_lag_7d",
+    "pv_rolling_mean_7d",
+    "load_rolling_mean_7d",
+    "pv_rolling_std_7d",
+    "pv_rolling_mean_14d",
+    "load_rolling_mean_14d",
+    "pv_rolling_std_14d",
+    "pv_rolling_mean_30d",
+    "load_rolling_mean_30d",
+    "pv_rolling_std_30d",
+    "district",
+    "irradiance",
+    "temp"
+  ],
+  "dropped_for_leakage": [
+    "net_export_lag_1d",
+    "net_export_lag_3d",
+    "net_export_lag_7d",
+    "wastage_lag_1d",
+    "wastage_lag_3d",
+    "wastage_lag_7d",
+    "wastage_rolling_mean_7d",
+    "wastage_rolling_mean_14d",
+    "wastage_rolling_mean_30d"
+  ],
+  "dropped_for_overlap": [
+    "quarter",
+    "week_of_year"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "split": "temporal_80_20",
+  "train_rows": 4504,
+  "test_rows": 1127,
+  "linear_regression_temporal": {
+    "R2": 0.9999269997531589,
+    "MAE": 0.049582915803319805,
+    "RMSE": 0.49635248696193496
+  },
+  "baselines": {
+    "naive_yesterday": {
+      "Model": "Naive: Yesterday Wastage",
+      "R2": 0.9907059194037994,
+      "MAE": 0.26112483584738244,
+      "RMSE": 5.600557430835123
+    },
+    "naive_rolling_mean": {
+      "Model": "Naive: Rolling Mean",
+      "R2": 0.9526349724473347,
+      "MAE": 1.043190074720497,
+      "RMSE": 12.643197876601993
+    }
+  }
+}
